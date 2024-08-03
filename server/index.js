@@ -15,22 +15,76 @@ const io = new Server(server, {
     origin: "*",
   },
 });
+
+// Store active rooms
+const rooms = new Map();
+
 io.on("connection", (socket) => {
-  console.log("a user connected");
+  console.log("A user connected");
+
+  socket.on("scheduleMeeting", ({ meetingId }) => {
+    console.log(`Meeting scheduled with ID: ${meetingId}`);
+    rooms.set(meetingId, []);
+    socket.join(meetingId);
+  });
+
+  socket.on("joinMeeting", ({ meetingId }) => {
+    console.log(`User ${socket.id} joining meeting: ${meetingId}`);
+    if (rooms.has(meetingId)) {
+      socket.join(meetingId);
+      rooms.get(meetingId).push(socket.id);
+      socket.to(meetingId).emit("message", { type: "ready" });
+    } else {
+      console.log(`Meeting ID ${meetingId} does not exist`);
+    }
+  });
+
+  socket.on("leaveMeeting", () => {
+    const userRooms = Array.from(socket.rooms);
+    const meetingRoom = userRooms.find((room) => rooms.has(room));
+
+    if (meetingRoom) {
+      socket.leave(meetingRoom);
+      rooms.set(
+        meetingRoom,
+        rooms.get(meetingRoom).filter((id) => id !== socket.id)
+      );
+      console.log(`User ${socket.id} left meeting: ${meetingRoom}`);
+    } else {
+      console.log("User not in any meeting room");
+    }
+  });
 
   socket.on("message", (message) => {
-    socket.broadcast.emit("message", message);
+    const userRooms = Array.from(socket.rooms);
+    const meetingRoom = userRooms.find((room) => rooms.has(room));
+
+    if (meetingRoom) {
+      socket.to(meetingRoom).emit("message", message);
+    } else {
+      console.log("User not in any meeting room");
+    }
   });
 
   socket.on("disconnect", () => {
-    console.log("Disconnected");
+    console.log("User disconnected");
+    const userRooms = Array.from(socket.rooms);
+    const meetingRoom = userRooms.find((room) => rooms.has(room));
+
+    if (meetingRoom) {
+      socket.leave(meetingRoom);
+      rooms.set(
+        meetingRoom,
+        rooms.get(meetingRoom).filter((id) => id !== socket.id)
+      );
+      console.log(`User ${socket.id} left meeting: ${meetingRoom}`);
+      socket.to(meetingRoom).emit("message", { type: "bye" });
+    }
   });
 });
 
-io.listen(3001, () => {
-  console.log("Socket.io server is running on http://localhost:3001");
-});
+const PORT = process.env.PORT || 3001;
 
-app.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
+server.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
