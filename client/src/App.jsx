@@ -1,14 +1,11 @@
-import "./App.css";
 import { io } from "socket.io-client";
 import { useRef, useEffect, useState } from "react";
-import {
-  FiVideo,
-  FiVideoOff,
-  FiMic,
-  FiMicOff,
-  FiCalendar,
-  FiUserPlus,
-} from "react-icons/fi";
+import { FiMic, FiMicOff } from "react-icons/fi";
+import { useStore } from "./store";
+import { PiPhoneDisconnectBold } from "react-icons/pi";
+import { useNavigate } from "react-router-dom";
+import { FaRegShareFromSquare } from "react-icons/fa6";
+import { MdDownloadDone } from "react-icons/md";
 
 const configuration = {
   iceServers: [
@@ -27,15 +24,17 @@ let pc;
 let localStream;
 
 function App() {
-  const startButton = useRef(null);
+  const mId = useStore((state) => state.meetingId);
+  const createMeetingIdContext = useStore((state) => state.setMeetingId);
+  const nav = useNavigate();
   const hangupButton = useRef(null);
   const muteAudButton = useRef(null);
   const localVideo = useRef(null);
   const remoteVideo = useRef(null);
   const [audiostate, setAudio] = useState(true);
-  const [meetingId, setMeetingId] = useState(null);
-  const [inputMeetingId, setInputMeetingId] = useState("");
+  const [meetingId, setMeetingId] = useState(mId);
   const [remoteStream, setRemoteStream] = useState(null);
+  const [copyStatus, setCopyStatus] = useState(false);
 
   useEffect(() => {
     hangupButton.current.disabled = true;
@@ -193,7 +192,7 @@ function App() {
     setRemoteStream(null);
   }
 
-  const startB = async (joinMeetingId = null) => {
+  const startB = async () => {
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -201,36 +200,28 @@ function App() {
       });
       localVideo.current.srcObject = localStream;
 
-      startButton.current.disabled = true;
       hangupButton.current.disabled = false;
       muteAudButton.current.disabled = false;
 
-      if (joinMeetingId) {
-        socket.emit("joinMeeting", { meetingId: joinMeetingId });
-      } else if (meetingId) {
+      if (meetingId) {
         socket.emit("joinMeeting", { meetingId: meetingId });
       } else {
-        alert("Please schedule a meeting or enter a meeting ID to join.");
-        startButton.current.disabled = false;
         hangupButton.current.disabled = true;
         muteAudButton.current.disabled = true;
+        nav("/");
       }
     } catch (err) {
       console.log("startB error:", err);
-      alert(
-        "Failed to access media devices. Please check your camera and microphone permissions."
-      );
     }
   };
 
   const hangB = async () => {
     hangup();
     socket.emit("leaveMeeting");
-    startButton.current.disabled = false;
+
     hangupButton.current.disabled = true;
     muteAudButton.current.disabled = true;
     setMeetingId(null);
-    setInputMeetingId("");
   };
 
   function muteAudio() {
@@ -243,80 +234,78 @@ function App() {
     }
   }
 
-  const scheduleMeeting = () => {
-    const newMeetingId = Math.random().toString(36).substring(7);
-    setMeetingId(newMeetingId);
-    socket.emit("scheduleMeeting", { meetingId: newMeetingId });
-    alert(`Your meeting ID is: ${newMeetingId}`);
-  };
+  useEffect(() => {
+    startB();
+  }, [meetingId, remoteStream]);
 
   useEffect(() => {
+    console.log("====================================");
+    console.log(remoteStream);
+    console.log("====================================");
     if (remoteVideo.current && remoteStream) {
       remoteVideo.current.srcObject = remoteStream;
+      startB();
     }
   }, [remoteStream]);
 
-  console.log("====================================");
-  console.log("remoteStream", remoteStream);
-  console.log("====================================");
+  const handleShare = () => {
+    // copy to clipboard
+    if (!meetingId) {
+      alert("No meeting id found");
+      return;
+    }
+    navigator.clipboard.writeText(meetingId);
+    setCopyStatus(true);
+    setTimeout(() => {
+      setCopyStatus(false);
+    }, 3000);
+  };
 
   return (
     <>
-      <div className="bg-body">
-        <main className="container">
-          <h1 className="heading">WebRTC Video Call</h1>
-          <div className="video bg-main">
+      <div className="bg-body w-full h-screen p-10 flex">
+        <main className="container flex-1 min-w-full h-full rounded-lg bg-slate-100">
+          <div className="video bg-main flex flex-col md:flex-row gap-2 w-full overflow-hidden ">
             <video
               ref={localVideo}
-              className="video-item"
-              autoPlay
-              playsInline
-              muted
-            ></video>
-            <video
-              ref={remoteVideo}
-              className="video-item"
+              className="video-item flex-1 shrink w-full md:w-1/2 rounded-lg flex justify-center items-center"
               autoPlay
               playsInline
             ></video>
+            {remoteStream ? (
+              <video
+                ref={remoteVideo}
+                className="video-item flex-1 shrink w-full md:w-1/2 rounded-lg flex justify-center items-center"
+                autoPlay
+                playsInline
+              ></video>
+            ) : (
+              <div className="video-item flex-1 shrink w-full md:w-1/2 rounded-lg flex justify-center items-center bg-slate-200 text-black">
+                Waiting for someone to join...
+              </div>
+            )}
           </div>
 
-          <div className="btn">
+          <div className="btn w-full flex gap-4 justify-center items-center m-10">
             <button
-              className="btn-item btn-start"
-              ref={startButton}
-              onClick={() => startB()}
-            >
-              <FiVideo />
-            </button>
-            <button
-              className="btn-item btn-end"
-              ref={hangupButton}
-              onClick={hangB}
-            >
-              <FiVideoOff />
-            </button>
-            <button
-              className="btn-item btn-start"
+              className="btn-item btn-end bg-blue-300 rounded-full p-4"
               ref={muteAudButton}
               onClick={muteAudio}
             >
               {audiostate ? <FiMic /> : <FiMicOff />}
             </button>
-            <button className="btn-item btn-schedule" onClick={scheduleMeeting}>
-              <FiCalendar /> Schedule Meeting
+            <button
+              className="btn-item btn-end bg-red-300 rounded-full p-4"
+              ref={hangupButton}
+              onClick={hangB}
+            >
+              <PiPhoneDisconnectBold />
             </button>
-          </div>
-
-          <div className="join-meeting">
-            <input
-              type="text"
-              value={inputMeetingId}
-              onChange={(e) => setInputMeetingId(e.target.value)}
-              placeholder="Enter Meeting ID"
-            />
-            <button onClick={() => startB(inputMeetingId)}>
-              <FiUserPlus /> Join Meeting
+            <button
+              className="btn-item btn-end bg-blue-300 rounded-full p-4"
+              onClick={handleShare}
+            >
+              {copyStatus ? <MdDownloadDone /> : <FaRegShareFromSquare />}
             </button>
           </div>
         </main>

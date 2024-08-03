@@ -13,10 +13,11 @@ import Home from "./pages/home.jsx";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: <Home />,
   },
   {
-    path: "",
+    path: "/meeting/:id",
+    element: <App />,
   },
 ]);
 ReactDOM.createRoot(document.getElementById("root")).render(

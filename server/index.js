@@ -50,6 +50,7 @@ io.on("connection", (socket) => {
         rooms.get(meetingRoom).filter((id) => id !== socket.id)
       );
       console.log(`User ${socket.id} left meeting: ${meetingRoom}`);
+      socket.to(meetingRoom).emit("message", { type: "bye" });
     } else {
       console.log("User not in any meeting room");
     }
