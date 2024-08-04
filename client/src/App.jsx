@@ -17,7 +17,7 @@ const configuration = {
   iceCandidatePoolSize: 10,
 };
 
-export const socket = io("http://localhost:3001", {
+export const socket = io("https://xoom-pnqd.onrender.com:3001", {
   transports: ["websocket"],
 });
 
