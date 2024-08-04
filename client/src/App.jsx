@@ -6,6 +6,7 @@ import { PiPhoneDisconnectBold } from "react-icons/pi";
 import { useNavigate } from "react-router-dom";
 import { FaRegShareFromSquare } from "react-icons/fa6";
 import { MdDownloadDone } from "react-icons/md";
+import Chat from "./components/chat";
 
 const configuration = {
   iceServers: [
@@ -25,7 +26,7 @@ let localStream;
 
 function App() {
   const mId = useStore((state) => state.meetingId);
-  const createMeetingIdContext = useStore((state) => state.setMeetingId);
+  const messageStreak = useStore((state) => state.addMessage);
   const nav = useNavigate();
   const hangupButton = useRef(null);
   const muteAudButton = useRef(null);
@@ -67,6 +68,12 @@ function App() {
             hangup();
           }
           break;
+        case "chat":
+          messageStreak({
+            sender: "other",
+            message: message.message,
+          });
+          break;
         default:
           console.log("Unhandled message type", message);
           break;
@@ -81,6 +88,16 @@ function App() {
     return () => {
       socket.off("message", handleMessage);
       socket.off("error");
+
+      // Cleanup media and peer connection
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+        localStream = null;
+      }
+      if (pc) {
+        pc.close();
+        pc = null;
+      }
     };
   }, []);
 
@@ -192,6 +209,15 @@ function App() {
     setRemoteStream(null);
   }
 
+  async function chatMessage(m) {
+    console.log("chatMessage", m);
+    messageStreak({
+      sender: "user",
+      message: m,
+    });
+    socket.emit("chat", m);
+  }
+
   const startB = async () => {
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
@@ -271,6 +297,7 @@ function App() {
               className="video-item flex-1 shrink w-full md:w-1/2 rounded-lg flex justify-center items-center"
               autoPlay
               playsInline
+              muted
             ></video>
             {remoteStream ? (
               <video
@@ -307,6 +334,7 @@ function App() {
             >
               {copyStatus ? <MdDownloadDone /> : <FaRegShareFromSquare />}
             </button>
+            <Chat chatMessage={chatMessage} />
           </div>
         </main>
       </div>

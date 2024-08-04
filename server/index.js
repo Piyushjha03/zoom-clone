@@ -39,6 +39,17 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("chat", (message) => {
+    const userRooms = Array.from(socket.rooms);
+    const meetingRoom = userRooms.find((room) => rooms.has(room));
+
+    if (meetingRoom) {
+      socket.to(meetingRoom).emit("message", { type: "chat", message });
+    } else {
+      console.log("User not in any meeting room");
+    }
+  });
+
   socket.on("leaveMeeting", () => {
     const userRooms = Array.from(socket.rooms);
     const meetingRoom = userRooms.find((room) => rooms.has(room));
