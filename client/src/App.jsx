@@ -297,7 +297,6 @@ function App() {
               className="video-item flex-1 shrink w-full md:w-1/2 rounded-lg flex justify-center items-center"
               autoPlay
               playsInline
-              muted
             ></video>
             {remoteStream ? (
               <video
