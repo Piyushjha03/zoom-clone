@@ -221,8 +221,8 @@ function App() {
   const startB = async () => {
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: { echoCancellation: true },
+        video: { facingMode: "user" },
+        audio: true,
       });
       localVideo.current.srcObject = localStream;
 
